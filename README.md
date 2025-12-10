@@ -1,16 +1,16 @@
-## AWS Serverless face recognition sentiment analysis on twitter 
+## AWS Serverless face recognition sentiment analysis on X (formerly Twitter)
 
 <img src="images/twitter-app.png" alt="app" width="1000"/>
 
-In this Serverless app we show a rank of the happiest, saddest among other emotions [Amazon Rekognition](https://aws.amazon.com/rekognition/) can detect from tweets that have the word "selfie" in it. The app relies on lambda functions that extract, process, store and report the information from the picture. It is important to note that Twitter is a public platform that does not moderate photos uploaded by its users. This demo uses the AWS Reckognition moderation feature, but occasionally inappropriate photos can appear. **Use at your own discretion**
+In this Serverless app we show a rank of the happiest, saddest among other emotions [Amazon Rekognition](https://aws.amazon.com/rekognition/) can detect from posts on X (formerly Twitter) that have the word "selfie" in it. The app relies on lambda functions that extract, process, store and report the information from the X API v2.
 
-The Amazon S3 bucket of this solution creates contains two [Object lifecycle management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) for the folders where the reports and records files are stored, which expire the files 2 days after of its creation. Similarly, the dynamoDb table that records all the images processed, expires the records after 2 days of its creation.  
+The Amazon S3 bucket of this solution creates contains two [Object lifecycle management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) for the folders where the reports and records files are stored, which expire the files 2 days after of its creation. Similarly, the dynamodb tables has a configured TTL that deletes content after 15 days of the item's creation automatically.
 
 Below is the diagram for a depiction of the complete architecture.
 
 <img src="images/twitter-rekognition.png" alt="architecture" width="800"/>
 
-The solution also leverage the [Embedded Metric Format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html) to create metrics for number of tweets that are being processed, number of images moderated and number of faces identified and processed. There isn't a direct correlations of numbers of tweets and faces processed as not all tweets' images have people, some images are moderated. In some cases one photo can contain more than 10 faces, which makes it impredictable. Becasuse EMF stores the information into AWS CloudWatch metrics, we were able to query it and display the estatitics and the graph data from there. 
+The solution also leverage the [Embedded Metric Format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html) to create metrics for number of tweets that are being processed, number of images moderated and number of faces identified and processed by Amazon Rekognition and their emotions.
 
 Another cool service used is [AWS X-Ray](https://aws.amazon.com/xray/) that allows you to understand how your application and its underlying services are performing to identify and troubleshoot the root cause of performance issues and errors.
 
@@ -26,40 +26,40 @@ This app is deployed through AWS CloudFormation with an additional Vue.js applic
 - AWS Account and permissition to create the resources.
 - Python 3.8 or Docker installed in your local machine.
 
-### Step 1: Create the Twitter API keys
+### Step 1: Create the X API v2 credentials
 
-1. The solution requires the following Twitter API Keys: Consumer Key (API Key, Consumer Secret (AP I Secret), Access Token, and Access Token Secret. The following steps walk you through registering the app with your Twitter account to create these values.
-   - Create a Twitter account if you do not already have one
-   - Register a new application with your Twitter account:
-     - Go to https://developer.twitter.com/en/portal/projects-and-apps
-     - Click "Create New App"
-     - Under Name, enter something descriptive (but unique), e.g., aws-serverless-twitter-es
-     - Enter a description
-     - Under Website, you can enter https://github.com/awslabs/aws-serverless-twitter-event-source
-     - Leave Callback URL blank
-     - Read and agree to the Twitter Developer Agreement
-     - Click "Create your Twitter application"
-   - (Optional, but recommended) Restrict the application permissions to read only
-     - From the detail page of your Twitter application, click the "Permissions" tab
-     - Under the "Access" section, make sure "Read only" is selected and click the "Update Settings" button
-   - Generate an access token:
-     - From the detail page of your Twitter application, click the "Keys and Access Tokens" tab
-     - On this tab, you will already see the Consumer Key (API Key) and Consumer Secret (API Secret) values required by the app.
-     - Scroll down to the Access Token section and click "Create my access token"
-     - You will now have the Access Token and Access Token Secret values required by the app.
+1. The solution requires X API v2 Bearer Token for authentication. The following steps walk you through obtaining these credentials from the X Developer Portal:
+   - Create an X (Twitter) account if you do not already have one
+   - Apply for a developer account at https://developer.x.com/
+   - Create a Project in the X Developer Portal:
+     - Go to https://developer.x.com/en/portal/dashboard
+     - Click "Create Project" and follow the prompts
+     - Provide a name and use case for your project
+     - **Note**: X API v2 credentials must be associated with a Project
+   - Create an App within your Project:
+     - After creating a project, click "Add App" or "Create App"
+     - Under Name, enter something descriptive (but unique), e.g., aws-serverless-x-sentiment-analysis
+     - Enter a description for your app
+   - (Optional, but recommended) Restrict the application permissions to read only:
+     - From the detail page of your X application, click the "Settings" tab
+     - Under "User authentication settings", ensure read-only access is configured
+   - Generate a Bearer Token:
+     - From your App page in the X Developer Portal, navigate to the "Keys and tokens" tab
+     - Under "Bearer Token", click "Generate" to create a Bearer Token
+     - **Important**: Save this token securely - you won't be able to see it again
+     - This Bearer Token is used for OAuth 2.0 authentication with X API v2
 
-2.  Store the keys as encrypted SecureString values in SSM Parameter Store. You can setup the required parameters via the AWS Console or using the following AWS CLI commands:
+2.  Store the Bearer Token as an encrypted SecureString value in SSM Parameter Store. You can setup the required parameter via the AWS Console or using the following AWS CLI command:
    
  ```bash
-aws ssm put-parameter --name /twitter-event-source/consumer_key --value <your consumer key value> --type SecureString --overwrite
-aws ssm put-parameter --name /twitter-event-source/consumer_secret --value <your consumer secret value> --type SecureString --overwrite
-aws ssm put-parameter --name /twitter-event-source/access_token --value <your access token value> --type SecureString --overwrite
-aws ssm put-parameter --name /twitter-event-source/access_token_secret --value <your access token secret value> --type SecureString --overwrite
+aws ssm put-parameter --name /twitter-event-source/bearer_token --value <your bearer token value> --type SecureString --overwrite
   ```
+
+**Note**: The X API v2 uses OAuth 2.0 Bearer Token authentication, which is simpler than the OAuth 1.0a flow used by the deprecated v1.1 API. The old consumer key, consumer secret, access token, and access token secret parameters are no longer needed.
 
 ### Step 2: Build all the solution's libraries dependencies
 
-1. The AWS Lambda functions requires libraries for their executions and SAM fetches and install them per each funtion. The *sam build* command creates a .aws-sam directory with the AWS SAM template, AWS Lambda function code, and any language-specific files and dependencies in a format ready to be deployed in the next step. 
+1. The AWS Lambda functions requires libraries for their executions and SAM fetches and install them per each funtion. The *sam build* command creates a .aws-sam directory with the AWS SAM template, AWS Lambda function code, and any language-specific files and dependencies in a format ready to be deployed to AWS.
    
 If you have Python 3.8 installed in your machine you can run:
    
@@ -90,7 +90,8 @@ Commands you can use next
 
 ### Step 3: Deploy the backend usins *sam deploy* 
 
-1. Now it is time to deploy the solution to your AWS Account. The command will ask you a few questions. Below an example of the questions and answers you can provide. Make sure you selecte a region that [Amazon Rekognition](https://docs.aws.amazon.com/general/latest/gr/rekognition.html) supports *DetectModerationLabels* and *DetectFaces* APIs.  
+1. Now it is time to deploy the solution to your AWS Account. The command will ask you a few questions. Below an example of the questions and answers you can provide. Make sure you selecte a region that [Amazon Rekognition](https://docs.aws.amazon.com/general/latest/gr/rekognition.html) supports *DetectFaces* and *DetectModerationLabels* operations (US East (N. Virginia), US West (Oregon), Asia Pacific (Mumbai), Europe (Frankfurt), Europe (Ireland)). If you try to deploy in regions where Amazon Rekognition doesn't support those operations, an error will be raised and the Stack won't be created. **Note**: Check if Amazon Rekognition supports all operations in the selected region.
+
 ```bash
 sam deploy --guided --capabilities CAPABILITY_NAMED_IAM
 

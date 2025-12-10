@@ -3,7 +3,7 @@ import os
 import sys
 
 import boto3
-import twitter
+import tweepy
 
 from boto3.dynamodb.conditions import Attr, Or
 from botocore.exceptions import ClientError
@@ -19,10 +19,7 @@ TWEET_PROCESSOR_FUNCTION_NAME = os.getenv('TWEET_PROCESSOR_FUNCTION_NAME')
 BATCH_SIZE = int(os.getenv('BATCH_SIZE'))
 
 SSM_PARAMETER_PREFIX = os.getenv("SSM_PARAMETER_PREFIX")
-CONSUMER_KEY_PARAM_NAME = '/{}/consumer_key'.format(SSM_PARAMETER_PREFIX)
-CONSUMER_SECRET_PARAM_NAME = '/{}/consumer_secret'.format(SSM_PARAMETER_PREFIX)
-ACCESS_TOKEN_PARAM_NAME = '/{}/access_token'.format(SSM_PARAMETER_PREFIX)
-ACCESS_TOKEN_SECRET_PARAM_NAME = '/{}/access_token_secret'.format(SSM_PARAMETER_PREFIX)
+BEARER_TOKEN_PARAM_NAME = '/{}/bearer_token'.format(SSM_PARAMETER_PREFIX)
 
 def handler(event, context):
     """Forward SQS messages to Kinesis Firehose Delivery Stream."""
@@ -39,16 +36,19 @@ def _search_batches():
     tweets = []
     while True:
         result = search(SEARCH_TEXT, since_id)
-        if not result['statuses']:
+        if not result:
             # no more results
             break
 
-        tweets = result['statuses']
+        tweets = result
         size = len(tweets)
         for i in range(0, size, BATCH_SIZE):
             yield tweets[i:min(i + BATCH_SIZE, size)]
-        since_id = result['search_metadata']['max_id']
-        update(since_id)
+        
+        # Update checkpoint with the newest tweet ID
+        if tweets:
+            newest_id = max(int(tweet['id']) for tweet in tweets)
+            update(str(newest_id))
 
 def last_id():
     """Return last checkpoint tweet id."""
@@ -79,36 +79,91 @@ def update(since_id):
 
 
 def search(search_text, since_id=None):
-    """Search for tweets matching the given search text."""
-    return TWITTER.GetSearch(term=search_text, count=100, return_json=True, since_id=since_id)
+    """Search for tweets matching the given search text using X API v2."""
+    try:
+        # Build query parameters
+        query_params = {
+            'query': search_text,
+            'max_results': 100,
+            'tweet_fields': ['id', 'text', 'attachments', 'entities'],
+            'expansions': ['attachments.media_keys'],
+            'media_fields': ['type', 'url', 'preview_image_url']
+        }
+        
+        if since_id:
+            query_params['since_id'] = since_id
+        
+        # Search recent tweets
+        response = X_CLIENT.search_recent_tweets(**query_params)
+        
+        if not response.data:
+            return []
+        
+        # Build media lookup from includes
+        media_lookup = {}
+        if response.includes and 'media' in response.includes:
+            for media in response.includes['media']:
+                media_lookup[media.media_key] = media
+        
+        # Transform X API v2 format to match parser expectations
+        transformed_tweets = []
+        for tweet in response.data:
+            # Check if tweet has media attachments
+            if not hasattr(tweet, 'attachments') or not tweet.attachments:
+                continue
+            
+            media_keys = tweet.attachments.get('media_keys', [])
+            if not media_keys:
+                continue
+            
+            # Build extended_entities structure for parser compatibility
+            media_entities = []
+            for media_key in media_keys:
+                if media_key not in media_lookup:
+                    continue
+                
+                media = media_lookup[media_key]
+                # Only process photos
+                if media.type == 'photo':
+                    media_entities.append({
+                        'id_str': str(tweet.id),
+                        'media_url_https': media.url,
+                        'type': 'photo'
+                    })
+            
+            if media_entities:
+                transformed_tweets.append({
+                    'id': str(tweet.id),
+                    'id_str': str(tweet.id),
+                    'full_text': tweet.text,
+                    'extended_entities': {
+                        'media': media_entities
+                    }
+                })
+        
+        return transformed_tweets
+        
+    except Exception as e:
+        print(f"Error searching tweets: {e}")
+        return []
 
 
-def _create_twitter_api():
-    parameter_names = [
-            CONSUMER_KEY_PARAM_NAME,
-            CONSUMER_SECRET_PARAM_NAME,
-            ACCESS_TOKEN_PARAM_NAME,
-            ACCESS_TOKEN_SECRET_PARAM_NAME
-    ]
+def _create_x_client():
+    """Create X API v2 client with Bearer Token authentication."""
     result = SSM.get_parameters(
-        Names=parameter_names,
+        Names=[BEARER_TOKEN_PARAM_NAME],
         WithDecryption=True
     )
 
     if result['InvalidParameters']:
         raise RuntimeError(
-            'Could not find expected SSM parameters containing Twitter API keys: {}'.format(parameter_names))
+            'Could not find expected SSM parameter containing X API Bearer Token: {}'.format(BEARER_TOKEN_PARAM_NAME))
 
     param_lookup = {param['Name']: param['Value'] for param in result['Parameters']}
+    bearer_token = param_lookup[BEARER_TOKEN_PARAM_NAME]
 
-    return twitter.Api(
-        consumer_key=param_lookup[CONSUMER_KEY_PARAM_NAME],
-        consumer_secret=param_lookup[CONSUMER_SECRET_PARAM_NAME],
-        access_token_key=param_lookup[ACCESS_TOKEN_PARAM_NAME],
-        access_token_secret=param_lookup[ACCESS_TOKEN_SECRET_PARAM_NAME],
-        tweet_mode='extended'
-    )
+    return tweepy.Client(bearer_token=bearer_token, wait_on_rate_limit=True)
 
 
-TWITTER = _create_twitter_api()
+X_CLIENT = _create_x_client()
 

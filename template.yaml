@@ -20,14 +20,14 @@ Parameters:
     Default: twitter-db
   SearchText:
     Type: String
-    Description: Non-URL-encoded search text poller should use when querying Twitter Search API.
+    Description: Non-URL-encoded search text poller should use when querying X API v2 Search endpoint.
     Default: selfie
   SSMParameterPrefix:
     Type: String
     Default: 'twitter-event-source'
     Description: >
-      This app assumes API keys needed to use the Twitter API are stored as SecureStrings in SSM Parameter Store under the prefix defined by
-      this parameter. See the app README for details.
+      This app assumes the X API v2 Bearer Token needed to use the X API is stored as a SecureString in SSM Parameter Store under the prefix defined by
+      this parameter. The required parameter is: bearer_token. See the app README for details.
   PollingFrequencyInMinutes:
     Type: Number
     MinValue: 1
