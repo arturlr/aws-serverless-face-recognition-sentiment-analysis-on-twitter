@@ -33,7 +33,7 @@
 
 <script>
 import ImageCard from "./components/ImageCard.vue"
-import moment from "moment";
+import dayjs from "dayjs";
 import axios from "axios";
 
 export default {
