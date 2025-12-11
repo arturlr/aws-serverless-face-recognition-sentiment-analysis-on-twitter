@@ -26,7 +26,9 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 s3 = boto3.client('s3')
-comprehend = boto3.client('comprehend')
+# Initialize Bedrock Runtime client with extended timeout for Nova models
+bedrock_config = boto3.session.Config(read_timeout=3600)
+bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
 firehose = boto3.client('firehose')
 
 male_names = ["Michael","Patrick","Stefan","Daniel","Thomas","Christoph","Dominik","Lukas","Philip","Florian","Manuel","Andreas","Alexander","Markus","Martin","Matthias","Christian","Mario","Bernhard","Johannes","Maximilian","Benjamin","Raphael","Peter","Christopher","René","Simon","Marco","Fabian","Julian","Marcel","Georg","Jakob","Tobias","Clemens","Robert","Oliver","Paul","Jürgen","Wolfgang","Felix","Josef","Hannes","Roman","Gerald","Sascha","Franz","Klaus","Pascal","Roland","Richard","Gregor","Harald","Gerhard","Armin","Gabriel","Marc","Alex","Alexis","Antonio","Austin","Beau","Beckett","Bentley","Brayden","Bryce","Caden","Caleb","Camden","Cameron","Carter","Casey","Cash","Charles","Charlie","Chase","Clark","Cohen","Connor","Cooper","David","Dawson","Declan","Dominic","Drake","Drew","Dylan","Edward","Eli","Elijah","Elliot","Emerson","Emmett","Ethan","Evan","Ezra","Felix","Gage","Gavin","Gus","Harrison","Hayden","Henry","Hudson","Hunter","Isaac","Jace","Jack","Jackson","Jacob","James","Jase","Jayden","John","Jonah","Joseph","Kai","Kaiden","Kingston","Levi","Liam","Logan","Lucas","Luke","Marcus","Mason","Matthew","Morgan","Nate","Nathan","Noah","Nolan","Oliver","Owen","Parker","Raphaël","Riley","Ryan","Samuel","Sebastian","Seth","Simon","Tanner","Taylor","Theo","Tristan","Turner","Ty","William","Wyatt"]
@@ -34,41 +36,72 @@ female_names = ["Julia","Lisa","Stefanie","Katharina","Melanie","Christina","Sab
 surnames = ["Silva","Lopez","Rodrigues","Jones","Martinez","Hernandez","Abbot","Ross","Pitt","Foster","Gruber","Huber","Bauer","Wagner","Müller","Pichler","Steiner","Moser","Mayer","Hofer","Leitner","Berger","Fuchs","Eder","Fischer","Schmid","Winkler","Weber","Schwarz","Maier","Schneider","Reiter","Mayr","Schmidt","Wimmer","Egger","Brunner","Lang","Baumgartner","Auer","Binder","Lechner","Wolf","Novak","Wallner","Aigner","Ebner","Koller","Lehner","Haas","Schuster","Anderson","Bergeron","Bouchard","Boucher","Butler","Santiago","Cruz","Brown","Bélanger","Campbell","Chan","Clark","Cote","Fortin","Gagnon","Gagné","Gauthier","Chu","Yong","Girard","Johnson","Jones","Lam","Lavoie","Lavoie","Leblanc","Lee","Li","Lévesque","Martin","Morin","Ortega","Ouellet","Paquette","Patel","Pelletier","Roy","Simard","Smith","Taylor","Thompson","Tremblay","White","Williams","Wilson","Wong"]
 
 def GetDominantLanguage(tweet_text):
-    language = "en"
-    score = 0
-    try:                
-        if len(tweet_text) > 25:
-            response = comprehend.detect_dominant_language(
-                Text=tweet_text
-            )
-            for l in response["Languages"]:
-                lcode = l["LanguageCode"]
-                lscore = l["Score"]
-                if lscore > score:
-                    score = lscore
-                    language = lcode
-            
-            return language
-
-        else:
-            return language
-
-    except Exception as e:
-        logger.error('Something went wrong: ' + str(e))
-        return language
+    # Nova 2 Lite supports multilingual input automatically
+    # No explicit language detection needed - model handles it internally
+    # Return 'auto' to indicate multilingual support
+    return "auto"
 
 def GetSentiment(tweet_text, language_code):
+    """
+    Analyze sentiment using AWS Bedrock Nova 2 Lite model.
+    Returns sentiment in Comprehend format: POSITIVE, NEGATIVE, NEUTRAL, or MIXED
+    """
     try:
-        response = comprehend.detect_sentiment(
-            Text=tweet_text,
-            LanguageCode=language_code
+        # Construct prompt for Nova 2 Lite to perform sentiment analysis
+        prompt = f"""Analyze the sentiment of the following text. Respond with ONLY one of these four words: POSITIVE, NEGATIVE, NEUTRAL, or MIXED.
+
+Text: {tweet_text}
+
+Sentiment:"""
+
+        # Prepare request body for Nova 2 Lite model
+        request_body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "inferenceConfig": {
+                "maxTokens": 10,
+                "temperature": 0.0,
+                "topP": 0.9
+            }
+        }
+
+        # Invoke the Nova 2 Lite model
+        response = bedrock_runtime.converse(
+            modelId="amazon.nova-2-lite-v1:0",
+            messages=request_body["messages"],
+            inferenceConfig=request_body["inferenceConfig"]
         )
 
-        return response["Sentiment"]
+        # Extract sentiment from response
+        if 'output' in response and 'message' in response['output']:
+            content = response['output']['message']['content']
+            if content and len(content) > 0 and 'text' in content[0]:
+                sentiment_text = content[0]['text'].strip().upper()
+                
+                # Validate and return sentiment
+                valid_sentiments = ['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'MIXED']
+                for valid_sentiment in valid_sentiments:
+                    if valid_sentiment in sentiment_text:
+                        return valid_sentiment
+                
+                # If no exact match, try to infer from response
+                logger.warning(f'Unexpected sentiment response: {sentiment_text}')
+                return 'NEUTRAL'
+        
+        logger.warning('Could not extract sentiment from Bedrock response')
+        return 'NEUTRAL'
 
     except Exception as e:
-        logger.error('Something went wrong: ' + str(e))        
-        return 'Unknow'
+        logger.error('Error in sentiment analysis: ' + str(e))        
+        return 'NEUTRAL'
     
 @metric_scope
 def handler(event, context, metrics):
@@ -88,7 +121,7 @@ def handler(event, context, metrics):
         fdata["first_name"] = 'NULL'
         fdata["last_name"] = 'NULL'
         logger.info('## Sentiment Analysis for ' + event_data["tweet_id"])
-        xray_recorder.begin_subsegment('## Comprehend Calls')
+        xray_recorder.begin_subsegment('## Bedrock Calls')
         language = GetDominantLanguage(event_data["full_text"])        
         sentiment = GetSentiment(event_data["full_text"],language)
         xray_recorder.end_subsegment()
