@@ -35,13 +35,7 @@ male_names = ["Michael","Patrick","Stefan","Daniel","Thomas","Christoph","Domini
 female_names = ["Julia","Lisa","Stefanie","Katharina","Melanie","Christina","Sabrina","Sarah","Anna","Sandra","Katrin","Carina","Bianca","Nicole","Jasmin","Kerstin","Tanja","Jennifer","Verena","Daniela","Theresa","Viktoria","Elisabeth","Nadine","Nina","Tamara","Madalena","Claudia","Jacquelina","Machaela","Martina","Denise","Barbara","Bettina","Alexandra","Cornelia","Maria","Vanessa","Andrea","Johanna","Eva","Natalie","Sabine","Isabella","Anja","Simone","Janine","Marlene","Patricia","Petra","Laura","Yvonne","Manuela","Karin","Birgit","Caroline","Tine","Carmen","Abigail","Adalyn","Aleah","Alexa","Alexis","Alice","Alyson","Amelia","Amy","Anabelle","Anna","Annie","Aria","Aubree","Ava","Ayla","Brielle","Brooke","Brooklyn","Callie","Camille","Casey","Charlie","Charlotte","Chloe","Claire","Danica","Elizabeth","Ella","Ellie","Elly","Emersyn","Emily","Emma","Evelyn","Felicity","Fiona","Florence","Georgia","Hailey","Haley","Isla","Jessica","Jordyn","Juliette","Kate","Katherine","Kayla","Keira","Kinsley","Kyleigh","Lauren","Layla","Lea","Leah","Lexi","Lily","Lydia","Lylah","Léa","Macie","Mackenzie","Madelyn","Madison","Maggie","Marley","Mary","Maya","Meredith","Mila","Molly","Mya","Olivia","Paige","Paisley","Peyton","Piper","Quinn","Rebekah","Rosalie","Ruby","Sadie","Samantha","Savannah","Scarlett","Selena","Serena","Sofia","Sophia","Sophie","Stella","Summer","Taylor","Tessa","Victoria","Violet","Zoey","Zoé"]
 surnames = ["Silva","Lopez","Rodrigues","Jones","Martinez","Hernandez","Abbot","Ross","Pitt","Foster","Gruber","Huber","Bauer","Wagner","Müller","Pichler","Steiner","Moser","Mayer","Hofer","Leitner","Berger","Fuchs","Eder","Fischer","Schmid","Winkler","Weber","Schwarz","Maier","Schneider","Reiter","Mayr","Schmidt","Wimmer","Egger","Brunner","Lang","Baumgartner","Auer","Binder","Lechner","Wolf","Novak","Wallner","Aigner","Ebner","Koller","Lehner","Haas","Schuster","Anderson","Bergeron","Bouchard","Boucher","Butler","Santiago","Cruz","Brown","Bélanger","Campbell","Chan","Clark","Cote","Fortin","Gagnon","Gagné","Gauthier","Chu","Yong","Girard","Johnson","Jones","Lam","Lavoie","Lavoie","Leblanc","Lee","Li","Lévesque","Martin","Morin","Ortega","Ouellet","Paquette","Patel","Pelletier","Roy","Simard","Smith","Taylor","Thompson","Tremblay","White","Williams","Wilson","Wong"]
 
-def GetDominantLanguage(tweet_text):
-    # Nova 2 Lite supports multilingual input automatically
-    # No explicit language detection needed - model handles it internally
-    # Return 'auto' to indicate multilingual support
-    return "auto"
-
-def GetSentiment(tweet_text, language_code):
+def GetSentiment(tweet_text):
     """
     Analyze sentiment using AWS Bedrock Nova 2 Lite model.
     Returns sentiment in Comprehend format: POSITIVE, NEGATIVE, NEUTRAL, or MIXED
@@ -122,8 +116,7 @@ def handler(event, context, metrics):
         fdata["last_name"] = 'NULL'
         logger.info('## Sentiment Analysis for ' + event_data["tweet_id"])
         xray_recorder.begin_subsegment('## Bedrock Calls')
-        language = GetDominantLanguage(event_data["full_text"])        
-        sentiment = GetSentiment(event_data["full_text"],language)
+        sentiment = GetSentiment(event_data["full_text"])
         xray_recorder.end_subsegment()
 
         for face in identified_faces:                     
