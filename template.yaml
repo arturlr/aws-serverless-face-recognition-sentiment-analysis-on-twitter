@@ -379,7 +379,14 @@ Resources:
             ParameterName: !Ref SSMParameterPrefix
         - FirehoseCrudPolicy:
             DeliveryStreamName: "*"        
-        - ComprehendBasicAccessPolicy: {}
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+                - bedrock:Converse
+              Resource: 
+                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-2-lite-v1:0'
         - S3CrudPolicy:
             BucketName:
               !Ref Bucket

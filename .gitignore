@@ -31,3 +31,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+
+# Agents
+.agents/
