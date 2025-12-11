@@ -25,3 +25,9 @@ pnpm-lock.yaml
 .env.local
 samconfig.toml
 .aws-sam/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
