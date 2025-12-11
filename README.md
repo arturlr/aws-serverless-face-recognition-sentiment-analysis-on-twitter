@@ -98,29 +98,29 @@ sam deploy --guided --capabilities CAPABILITY_NAMED_IAM
 Configuring SAM deploy
 ======================
 
-	Looking for config file [samconfig.toml] :  Not found
+        Looking for config file [samconfig.toml] :  Not found
 
-	Setting default arguments for 'sam deploy'
-	=========================================
-	Stack Name [sam-app]: twitter-demo
-	AWS Region [us-west-2]:
-	Parameter GlueDatabaseName [twitter-db]:
-	Parameter SearchText [selfie]:
-	Parameter SSMParameterPrefix [twitter-event-source]:
-	Parameter PollingFrequencyInMinutes [10]:
-	Parameter BatchSize [15]:
-	#Shows you resources changes to be deployed and require a 'Y' to initiate deploy
-	Confirm changes before deploy [y/N]: y
-	#SAM needs permission to be able to create roles to connect to the resources in your template
-	Allow SAM CLI IAM role creation [Y/n]: y
-	#Preserves the state of previously provisioned resources when an operation fails
-	Disable rollback [y/N]: n
-	GetStat may not have authorization defined, Is this okay? [y/N]: y
-	GetImage may not have authorization defined, Is this okay? [y/N]: y
-	DelImage may not have authorization defined, Is this okay? [y/N]: y
-	Save arguments to configuration file [Y/n]: y
-	SAM configuration file [samconfig.toml]:
-	SAM configuration environment [default]:
+        Setting default arguments for 'sam deploy'
+        =========================================
+        Stack Name [sam-app]: twitter-demo
+        AWS Region [us-west-2]:
+        Parameter GlueDatabaseName [twitter-db]:
+        Parameter SearchText [selfie]:
+        Parameter SSMParameterPrefix [twitter-event-source]:
+        Parameter PollingFrequencyInMinutes [10]:
+        Parameter BatchSize [15]:
+        #Shows you resources changes to be deployed and require a 'Y' to initiate deploy
+        Confirm changes before deploy [y/N]: y
+        #SAM needs permission to be able to create roles to connect to the resources in your template
+        Allow SAM CLI IAM role creation [Y/n]: y
+        #Preserves the state of previously provisioned resources when an operation fails
+        Disable rollback [y/N]: n
+        GetStat may not have authorization defined, Is this okay? [y/N]: y
+        GetImage may not have authorization defined, Is this okay? [y/N]: y
+        DelImage may not have authorization defined, Is this okay? [y/N]: y
+        Save arguments to configuration file [Y/n]: y
+        SAM configuration file [samconfig.toml]:
+        SAM configuration environment [default]:
 ```
 
 Once AWS SAM deploy does it magic, all you need is to answer **Y** to proceed the deployment.
@@ -144,4 +144,13 @@ Once if finishes the script provides you the URL where the applicaton is running
 Site available at: https://<YourCloudFrontId>.cloudfront.net
 ```
 
-:warning: **Important Note: Some Ad blocking apps can prevent the images to be shown.** 
+:warning: **Important Note: Some Ad blocking apps can prevent the images to be shown.**
+
+## Documentation
+
+For detailed documentation about deployment, migration, and API usage, see the [docs](./docs) directory:
+
+- [Quick Start Guide](./docs/QUICK_START.md) - Fast deployment reference
+- [Migration Guide](./docs/MIGRATION_GUIDE.md) - Twitter API v1.1 to X API v2 migration details
+- [Deployment Verification](./docs/DEPLOYMENT_VERIFICATION.md) - Post-deployment verification steps
+- [Rekognition API Audit](./docs/REKOGNITION_API_AUDIT.md) - Amazon Rekognition API usage documentation 
