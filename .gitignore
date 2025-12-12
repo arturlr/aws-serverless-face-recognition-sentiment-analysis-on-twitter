@@ -31,6 +31,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.hypothesis/
+*.backup
 
 # Agents
 .agents/
