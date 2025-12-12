@@ -7,7 +7,7 @@ Globals:
     AutoPublishAlias: live
     Handler: index.handler
     MemorySize: 256
-    Runtime: python3.8
+    Runtime: python3.13
     Timeout: 120
     Tracing: Active
     Layers:
@@ -173,10 +173,10 @@ Resources:
       Description: requests awsxray emf
       ContentUri: ./layers/core
       CompatibleRuntimes:
-        - python3.8
+        - python3.13
       RetentionPolicy: Delete
     Metadata:
-      BuildMethod: python3.8
+      BuildMethod: python3.13
 
   PandasLayer:
     Type: AWS::Serverless::LayerVersion
@@ -184,10 +184,10 @@ Resources:
       Description: pandas numpy
       ContentUri: ./layers/pandas
       CompatibleRuntimes:
-        - python3.8
+        - python3.13
       RetentionPolicy: Delete
     Metadata:
-      BuildMethod: python3.8
+      BuildMethod: python3.13
 
   Poller:
     Type: AWS::Serverless::Function

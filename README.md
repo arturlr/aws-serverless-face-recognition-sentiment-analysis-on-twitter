@@ -24,7 +24,7 @@ This app is deployed through AWS CloudFormation with an additional Vue.js applic
 - npm to be able to build the Vue.js app
 - [AWS cli](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) to be able to interact with the AWS resources
 - AWS Account and permissition to create the resources.
-- Python 3.8 or Docker installed in your local machine.
+- Python 3.13 or Docker installed in your local machine.
 
 ### Step 1: Create the X API v2 credentials
 
@@ -61,7 +61,7 @@ aws ssm put-parameter --name /twitter-event-source/bearer_token --value <your be
 
 1. The AWS Lambda functions requires libraries for their executions and SAM fetches and install them per each funtion. The *sam build* command creates a .aws-sam directory with the AWS SAM template, AWS Lambda function code, and any language-specific files and dependencies in a format ready to be deployed to AWS.
    
-If you have Python 3.8 installed in your machine you can run:
+If you have Python 3.13 installed in your machine you can run:
    
 ```bash
 sam build
@@ -69,7 +69,7 @@ sam build
 
 Another option is to execute *sam build* using containers. It requires you to have docker installed :
 ```bash
-sam build --use-container --build-image amazon/aws-sam-cli-build-image-python3.8
+sam build --use-container --build-image amazon/aws-sam-cli-build-image-python3.13
 ```
 
 When the build finishes, you will receive a message like: 
