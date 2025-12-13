@@ -111,7 +111,7 @@ def handler(event, context, metrics):
 
     # Updated: Process enhanced moderation response with new fields
     if len(mod_response.get("ModerationLabels", [])) != 0:
-        metrics.set_namespace('TwitterRekognition')
+        metrics.set_namespace('XSentimentAnalysis')
         metrics.put_metric("ImagesModerated", 1, "Count")
         metrics.set_property("RequestId", context.aws_request_id)
         

@@ -28,11 +28,12 @@ Parameters:
     Description: >
       This app assumes the X API v2 Bearer Token needed to use the X API is stored as a SecureString in SSM Parameter Store under the prefix defined by
       this parameter. The required parameter is: bearer_token. See the app README for details.
-  PollingFrequencyInMinutes:
+  PollingFrequencyInHours:
     Type: Number
     MinValue: 1
-    Default: 10
-    Description: Frequency in minutes to poll for more tweets.
+    MaxValue: 24
+    Default: 12
+    Description: Frequency in hours to poll for more tweets. Default 12 hours (twice daily) for X API v2 rate limits.
   BatchSize:
     Type: Number
     MinValue: 1
@@ -40,7 +41,7 @@ Parameters:
     Description: Max number of tweets to send to the TweetProcessor lambda function on each invocation.
 
 Conditions:
-  IsPollingFrequencyInMinutesSingular: !Equals [!Ref PollingFrequencyInMinutes, 1]
+  IsPollingFrequencyInHoursSingular: !Equals [!Ref PollingFrequencyInHours, 1]
 
 
 Resources:
@@ -217,7 +218,7 @@ Resources:
         Timer:
           Type: Schedule
           Properties:
-            Schedule: !If [IsPollingFrequencyInMinutesSingular, !Sub 'rate(${PollingFrequencyInMinutes} minute)', !Sub 'rate(${PollingFrequencyInMinutes} minutes)']
+            Schedule: !If [IsPollingFrequencyInHoursSingular, !Sub 'rate(${PollingFrequencyInHours} hour)', !Sub 'rate(${PollingFrequencyInHours} hours)']
 
   SearchCheckpoint:
     Type: AWS::Serverless::SimpleTable
